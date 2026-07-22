@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../models/food_item.dart';
+import '../providers/food_provider.dart';
 import '../widgets/food_item_card.dart';
 import '../widgets/app_widgets.dart';
 import '../theme/app_theme.dart';
@@ -29,26 +31,48 @@ class _HomeScreenState extends State<HomeScreen> {
     {'name': 'Metro Green', 'initials': 'MG', 'distance': '2.2 km', 'rating': 4.8, 'products': 20},
   ];
 
-  List<FoodItem> get _filteredItems {
-    if (_selectedCategory == 'All') return mockFoodItems;
-    if (_selectedCategory == '🎁 Donations') {
-      return mockFoodItems.where((i) => i.isDonation).toList();
-    }
-    return mockFoodItems
-        .where((i) => i.category == _selectedCategory)
-        .toList();
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  void _onSearchChanged() {
+    setState(() {});
+  }
+
+  List<FoodItem> _getFilteredItems(List<FoodItem> allItems) {
+    final query = _searchController.text.trim().toLowerCase();
+    return allItems.where((item) {
+      final matchesCategory = (_selectedCategory == 'All') ||
+          (_selectedCategory == '🎁 Donations' && item.isDonation) ||
+          (item.category.toLowerCase() == _selectedCategory.toLowerCase());
+
+      final matchesSearch = query.isEmpty ||
+          item.title.toLowerCase().contains(query) ||
+          item.description.toLowerCase().contains(query) ||
+          item.farmerName.toLowerCase().contains(query) ||
+          item.location.toLowerCase().contains(query) ||
+          item.category.toLowerCase().contains(query);
+
+      return matchesCategory && matchesSearch;
+    }).toList();
   }
 
   @override
   void dispose() {
+    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final donationItems = mockFoodItems.where((i) => i.isDonation).toList();
-    final freshItems = _filteredItems.where((i) => !i.isDonation).toList();
+    final allItems = context.watch<FoodProvider>().items;
+    final filteredItems = _getFilteredItems(allItems);
+    final donationItems = filteredItems.where((i) => i.isDonation).toList();
+    final freshItems = filteredItems.where((i) => !i.isDonation).toList();
+    final isSearching = _searchController.text.trim().isNotEmpty;
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -75,117 +99,129 @@ class _HomeScreenState extends State<HomeScreen> {
             child: _buildFilterChips().animate().fadeIn(delay: 200.ms),
           ),
 
-          // ── Nearby Farmers ──
-          SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 24),
-                SectionHeader(
-                  title: '🌾 Nearby Farmers',
-                  actionLabel: 'View map',
-                  onAction: () {},
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 112,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: _nearbyFarmers.length,
-                    itemBuilder: (ctx, i) =>
-                        _buildFarmerChip(_nearbyFarmers[i], i),
-                  ),
-                ),
-              ],
-            ).animate().fadeIn(delay: 250.ms),
-          ),
+          // ── Empty Search Results ──
+          if (filteredItems.isEmpty)
+            SliverToBoxAdapter(
+              child: _buildEmptySearchResult(),
+            ),
 
-          // ── Community Donations ──
-          if (donationItems.isNotEmpty) ...[
+          if (filteredItems.isNotEmpty) ...[
+            // ── Nearby Farmers ──
             SliverToBoxAdapter(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 24),
                   SectionHeader(
-                    title: '💚 Community Donations',
-                    actionLabel: 'See all',
+                    title: '🌾 Nearby Farmers',
+                    actionLabel: 'View map',
                     onAction: () {},
                   ),
-                  const SizedBox(height: 4),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Text(
-                      'Free produce from local farmers for those in need',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: AppTheme.textSecondary,
-                      ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 112,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      itemCount: _nearbyFarmers.length,
+                      itemBuilder: (ctx, i) =>
+                          _buildFarmerChip(_nearbyFarmers[i], i),
                     ),
                   ),
                 ],
-              ).animate().fadeIn(delay: 300.ms),
+              ).animate().fadeIn(delay: 250.ms),
             ),
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height: 330,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-                  itemCount: donationItems.length,
-                  itemBuilder: (ctx, i) => FoodItemCard(item: donationItems[i]),
-                ),
-              ).animate().fadeIn(delay: 350.ms),
-            ),
-          ],
 
-          // ── AI Recommendation Banner ──
-          SliverToBoxAdapter(
-            child: _buildAIBanner().animate().fadeIn(delay: 400.ms),
-          ),
-
-          // ── Fresh Local Produce ──
-          SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 28),
-                SectionHeader(
-                  title: '🥦 Fresh Local Produce',
-                  actionLabel: 'See all',
-                  onAction: () {},
-                ),
-                const SizedBox(height: 4),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(
-                    'Harvested today and yesterday from farms near you',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: AppTheme.textSecondary,
+            // ── Community Donations ──
+            if (donationItems.isNotEmpty) ...[
+              SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 28),
+                    SectionHeader(
+                      title: '💚 Community Donations',
+                      actionLabel: 'See all',
+                      onAction: () {},
                     ),
-                  ),
-                ),
-              ],
-            ).animate().fadeIn(delay: 450.ms),
-          ),
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: 330,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-                itemCount: freshItems.length,
-                itemBuilder: (ctx, i) => FoodItemCard(item: freshItems[i]),
+                    const SizedBox(height: 4),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Text(
+                        'Free produce from local farmers for those in need',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ).animate().fadeIn(delay: 300.ms),
               ),
-            ).animate().fadeIn(delay: 500.ms),
-          ),
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: 330,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                    itemCount: donationItems.length,
+                    itemBuilder: (ctx, i) => FoodItemCard(item: donationItems[i]),
+                  ),
+                ).animate().fadeIn(delay: 350.ms),
+              ),
+            ],
 
-          // ── Trending Section ──
-          SliverToBoxAdapter(
-            child: _buildTrendingSection().animate().fadeIn(delay: 550.ms),
-          ),
+            // ── AI Recommendation Banner ──
+            if (!isSearching)
+              SliverToBoxAdapter(
+                child: _buildAIBanner().animate().fadeIn(delay: 400.ms),
+              ),
+
+            // ── Fresh Local Produce ──
+            if (freshItems.isNotEmpty) ...[
+              SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 28),
+                    SectionHeader(
+                      title: '🥦 Fresh Local Produce',
+                      actionLabel: 'See all',
+                      onAction: () {},
+                    ),
+                    const SizedBox(height: 4),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Text(
+                        'Harvested today and yesterday from farms near you',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ).animate().fadeIn(delay: 450.ms),
+              ),
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: 330,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                    itemCount: freshItems.length,
+                    itemBuilder: (ctx, i) => FoodItemCard(item: freshItems[i]),
+                  ),
+                ).animate().fadeIn(delay: 500.ms),
+              ),
+            ],
+
+            // ── Trending Section ──
+            if (!isSearching)
+              SliverToBoxAdapter(
+                child: _buildTrendingSection().animate().fadeIn(delay: 550.ms),
+              ),
+          ],
 
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
@@ -275,7 +311,68 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildEmptySearchResult() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
+      child: Container(
+        padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+          border: Border.all(color: AppTheme.border),
+          boxShadow: AppTheme.shadowSmall,
+        ),
+        child: Column(
+          children: [
+            const Text('🔍', style: TextStyle(fontSize: 44)),
+            const SizedBox(height: 12),
+            Text(
+              'No items found',
+              style: GoogleFonts.outfit(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _searchController.text.isNotEmpty
+                  ? 'No produce matching "${_searchController.text}". Try searching for broccoli, cucumbers, tomatoes, or carrots.'
+                  : 'No produce found for category "$_selectedCategory".',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: AppTheme.textSecondary,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 18),
+            ElevatedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _searchController.clear();
+                  _selectedCategory = 'All';
+                });
+              },
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Reset Search & Filters'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSearchBar() {
+    final hasText = _searchController.text.isNotEmpty;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
       child: Container(
@@ -287,6 +384,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: TextField(
           controller: _searchController,
+          onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
             hintText: 'Search vegetables, fruits, farms…',
             hintStyle: GoogleFonts.inter(
@@ -298,15 +396,32 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             prefixIconConstraints:
                 const BoxConstraints(minWidth: 50, minHeight: 50),
-            suffixIcon: Container(
-              margin: const EdgeInsets.all(8),
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                gradient: AppTheme.gradientPrimary,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child:
-                  const Icon(Icons.tune_rounded, color: Colors.white, size: 18),
+            suffixIcon: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (hasText)
+                  GestureDetector(
+                    onTap: () {
+                      _searchController.clear();
+                      setState(() {});
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.only(right: 8),
+                      child: Icon(Icons.cancel_rounded,
+                          color: AppTheme.textTertiary, size: 20),
+                    ),
+                  ),
+                Container(
+                  margin: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    gradient: AppTheme.gradientPrimary,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.tune_rounded,
+                      color: Colors.white, size: 18),
+                ),
+              ],
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),

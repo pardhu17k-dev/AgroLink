@@ -13,6 +13,7 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   GoogleMapController? mapController;
+  final TextEditingController _mapSearchController = TextEditingController();
 
   final LatLng _center = const LatLng(37.7749, -122.4194); // Mock user location
   final Set<Marker> _markers = {};
@@ -21,6 +22,12 @@ class _MapScreenState extends State<MapScreen> {
   void initState() {
     super.initState();
     _setMarkers();
+  }
+
+  @override
+  void dispose() {
+    _mapSearchController.dispose();
+    super.dispose();
   }
 
   void _setMarkers() {
@@ -53,7 +60,16 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final items = context.watch<FoodProvider>().items;
+    final rawItems = context.watch<FoodProvider>().items;
+    final query = _mapSearchController.text.trim().toLowerCase();
+    final items = query.isEmpty
+        ? rawItems
+        : rawItems.where((i) =>
+            i.title.toLowerCase().contains(query) ||
+            i.description.toLowerCase().contains(query) ||
+            i.location.toLowerCase().contains(query) ||
+            i.farmerName.toLowerCase().contains(query) ||
+            i.category.toLowerCase().contains(query)).toList();
 
     return Scaffold(
       body: Stack(
@@ -83,12 +99,23 @@ class _MapScreenState extends State<MapScreen> {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
                 ),
-                child: const TextField(
+                child: TextField(
+                  controller: _mapSearchController,
+                  onChanged: (_) => setState(() {}),
                   decoration: InputDecoration(
                     hintText: "Search in this area...",
-                    prefixIcon: Icon(Icons.search),
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _mapSearchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            onPressed: () {
+                              _mapSearchController.clear();
+                              setState(() {});
+                            },
+                          )
+                        : null,
                     border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   ),
                 ),
               ),
@@ -119,67 +146,72 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                   const SizedBox(height: 12),
                   Expanded(
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: items.length,
-                      itemBuilder: (context, index) {
-                        final item = items[index];
-                        return Container(
-                          width: 250,
-                          margin: const EdgeInsets.only(left: 8, right: 8, bottom: 24),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 5)],
-                          ),
-                          child: Row(
-                            children: [
-                              ClipRRect(
-                                borderRadius: const BorderRadius.horizontal(left: Radius.circular(16)),
-                                child: Image.network(
-                                item.imageUrl,
-                                width: 80,
-                                height: double.infinity,
-                                fit: BoxFit.cover,
-                                loadingBuilder: (ctx, child, progress) => progress == null
-                                    ? child
-                                    : Container(
+                    child: items.isEmpty
+                        ? const Center(
+                            child: Text("No produce found matching search",
+                                style: TextStyle(color: Colors.grey, fontSize: 13)),
+                          )
+                        : ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: items.length,
+                            itemBuilder: (context, index) {
+                              final item = items[index];
+                              return Container(
+                                width: 250,
+                                margin: const EdgeInsets.only(left: 8, right: 8, bottom: 24),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 5)],
+                                ),
+                                child: Row(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: const BorderRadius.horizontal(left: Radius.circular(16)),
+                                      child: Image.network(
+                                      item.imageUrl,
+                                      width: 80,
+                                      height: double.infinity,
+                                      fit: BoxFit.cover,
+                                      loadingBuilder: (ctx, child, progress) => progress == null
+                                          ? child
+                                          : Container(
+                                              width: 80,
+                                              color: Colors.grey[200],
+                                              child: const Center(
+                                                child: SizedBox(
+                                                  width: 20,
+                                                  height: 20,
+                                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                                ),
+                                              ),
+                                            ),
+                                      errorBuilder: (ctx, err, st) => Container(
                                         width: 80,
                                         color: Colors.grey[200],
-                                        child: const Center(
-                                          child: SizedBox(
-                                            width: 20,
-                                            height: 20,
-                                            child: CircularProgressIndicator(strokeWidth: 2),
-                                          ),
+                                        child: const Icon(Icons.broken_image, color: Colors.grey),
+                                      ),
+                                    ),
+                                    ),
+                                    Expanded(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(12.0),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Text(item.title, style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 1),
+                                            Text(item.location, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                          ],
                                         ),
                                       ),
-                                errorBuilder: (ctx, err, st) => Container(
-                                  width: 80,
-                                  color: Colors.grey[200],
-                                  child: const Icon(Icons.broken_image, color: Colors.grey),
+                                    )
+                                  ],
                                 ),
-                              ),
-                              ),
-                              Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12.0),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(item.title, style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 1),
-                                      Text(item.location, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                                    ],
-                                  ),
-                                ),
-                              )
-                            ],
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
                   ),
                 ],
               ),
