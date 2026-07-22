@@ -702,20 +702,16 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
 
   Widget _buildOrderCard(Map<String, dynamic> order) {
     final status = order['status'] as String;
-    Color statusColor;
     AppBadgeVariant badgeVariant;
 
     switch (status) {
       case 'Delivered':
-        statusColor = AppTheme.success;
         badgeVariant = AppBadgeVariant.success;
         break;
       case 'Accepted':
-        statusColor = AppTheme.info;
         badgeVariant = AppBadgeVariant.info;
         break;
       default:
-        statusColor = AppTheme.warning;
         badgeVariant = AppBadgeVariant.warning;
     }
 
@@ -1051,7 +1047,7 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                       Switch(
                         value: isOrganic,
                         onChanged: (v) => setModalState(() => isOrganic = v),
-                        activeColor: AppTheme.primary,
+                        activeThumbColor: AppTheme.primary,
                       ),
                     ],
                   ),

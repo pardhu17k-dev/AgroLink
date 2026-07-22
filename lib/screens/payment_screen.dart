@@ -73,7 +73,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         ...cart.asMap().entries.map((entry) {
                           final i = entry.key;
                           final cartItem = entry.value;
-                          final item = cartItem.item;
                           return _buildCartItem(cartItem, i);
                         }),
 

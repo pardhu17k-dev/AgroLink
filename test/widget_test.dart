@@ -1,10 +1,8 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_food_access/main.dart';
 import 'package:smart_food_access/models/food_item.dart';
 import 'package:smart_food_access/providers/food_provider.dart';
-import 'package:smart_food_access/screens/auth_screen.dart';
 
 void main() {
   group('Smart Food Access — Unit & Widget Tests', () {
